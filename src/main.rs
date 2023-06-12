@@ -1,36 +1,48 @@
+#![allow(unused)]
+
+use crate::prelude::*;
+
+mod error;
+mod prelude;
+
 use git2::Repository;
 use std::fs::create_dir_all;
 
 use directories::ProjectDirs;
 use clap::{Args, Parser, Subcommand};
 
-pub fn init() {
-    if let Some(proj_dirs) = ProjectDirs::from("dev", "thales-maciel", "dotr") {
-        let data_dir = proj_dirs.data_dir();
-        println!("data dir is {:?}", data_dir);
-        if !data_dir.exists() {
-            if let Err(_e) = create_dir_all(data_dir) {
-                println!("Failed to create data dir {:?}", _e);
-            }
-            if let Err(_e) = Repository::init(data_dir) {
-                println!("Failed to initialize repository {:?}", _e);
-            }
-        } else {
-            // check if it's already initialized
-
-
-        }
+pub fn assert_repo_exists(dir: &str) -> Result<()> {
+    match Repository::init(dir) {
+        Ok(_) => Ok(()),
+        Err(_) => Err(Error::Generic("Failed to initialize repository".into()))
     }
 }
 
-fn main() {
+pub fn init() -> Result<()> {
+    if let Some(proj_dirs) = ProjectDirs::from("dev", "thales-maciel", "dotr") {
+        // create_dir_all(&proj_dirs.data_dir())?;
+        if let Err(_) = create_dir_all(&proj_dirs.data_dir()) {
+            return Err(Error::Generic("Failed to create data directory".into()));
+        };
+
+        return assert_repo_exists(proj_dirs.data_dir().to_str().unwrap());
+    }
+
+    Err(Error::Generic("Project dir not found".into()))
+}
+
+fn main() -> Result<()> {
     let cli = Cli::parse();
-    match &cli.command {
+    let res = match &cli.command {
         Commands::Init => {
             init();
         },
         _ => {}
-    }
+    };
+    
+    println!("res: {:#?}", res);
+
+    Ok(())
 }
 
 #[derive(Parser)]

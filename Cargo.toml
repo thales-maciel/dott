@@ -7,4 +7,5 @@ edition = "2021"
 clap = { version = "4.1.1", features = ["derive", "unstable-doc"] }
 directories = "5.0.1"
 git2 = "0.17.2"
+thiserror = "1.0.40"
 
