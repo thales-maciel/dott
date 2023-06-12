@@ -1,38 +1,63 @@
 {
-  description = "DotR - A simple dotfile manager";
-
   inputs = {
-    flake-utils.url = "github:numtide/flake-utils";
-    naersk.url = "github:nix-community/naersk";
+    flake-parts = {
+      inputs.nixpkgs-lib.follows = "nixpkgs";
+      url = "github:hercules-ci/flake-parts";
+    };
+
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
   };
 
-  outputs = { self, flake-utils, naersk, nixpkgs }:
-    let
-      supportedSystems = 
-        [ "x86_64-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin" ];
-      forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
-      pkgs = forAllSystems (system: nixpkgs.legacyPackages.${system});
-      naersk' = forAllSystems (system: pkgs.${system}.callPackage naersk {});
-    in {
-      packages = forAllSystems
-        (system: { default = naersk'.${system}.buildPackage { src = ./.; }; });
+  outputs = inputs:
+    inputs.flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = [ "x86_64-linux" ];
 
-      devShells = forAllSystems (system: {
-        default = pkgs.${system}.mkShellNoCC {
-          RUST_SRC_PATH = pkgs.${system}.rustPlatform.rustLibSrc;
-          buildInputs = with pkgs.${system}; [ rustfmt ];
-          nativeBuildInputs = with pkgs.${system}; [ rustc cargo gcc libiconv ];
-        };
-      });
+      perSystem = { pkgs, lib, config, ... }:
+      let
+        inherit (lib.importTOML (inputs.self + "/Cargo.toml")) package;
+      in
+      {
+        packages = {
+          default = pkgs.rustPlatform.buildRustPackage {
+            inherit (package) version;
 
-      apps = forAllSystems (system: {
-        default = {
-          program = "${self.packages.${system}.default}/bin/dotr";
-          type = "app";
+            cargoLock.lockFile = (inputs.self + "/Cargo.lock");
+            pname = package.name;
+            src = inputs.self;
+
+            buildInputs = with pkgs; [
+              dbus
+              openssl
+            ];
+            nativeBuildInputs = with pkgs; [
+              pkg-config
+            ];
+            dbus = pkgs.dbus;
+          };
         };
-      });
+
+        devShells.default = pkgs.mkShell {
+          buildInputs = with pkgs; [
+            dbus
+            openssl
+          ];
+          nativeBuildInputs = with pkgs; [
+            pkg-config
+          ];
+          dbus = pkgs.dbus;
+          packages = with pkgs; [
+            cargo
+            rustc
+            rustfmt
+          ];
+        };
+
+        apps = {
+          default = {
+            program = "${config.packages.default}/bin/dotr";
+            type = "app";
+          };
+        };
+      };
     };
-
-
 }

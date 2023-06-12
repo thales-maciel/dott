@@ -1,27 +1,8 @@
-use std::process::Command;
+use git2::Repository;
 use std::fs::create_dir_all;
-use std::io;
 
 use directories::ProjectDirs;
 use clap::{Args, Parser, Subcommand};
-
-pub fn create_repo(path: &str) -> io::Result<()> {
-    println!("Will create repository at {:?}", path);
-    let status = Command::new("git")
-        .arg("init")
-        .arg(path)
-        .status()?;
-
-
-    if !status.success() {
-        println!("Failed to create repository {:?}", status);
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
-            "Failed to initialize git repository",
-        ));
-    };
-    Ok(())
-}
 
 pub fn init() {
     if let Some(proj_dirs) = ProjectDirs::from("dev", "thales-maciel", "dotr") {
@@ -31,11 +12,12 @@ pub fn init() {
             if let Err(_e) = create_dir_all(data_dir) {
                 println!("Failed to create data dir {:?}", _e);
             }
-            if let Err(_e) = create_repo(data_dir.to_str().unwrap()) {
-                println!("[INIT]: Failed to create repository {:?}", _e);
+            if let Err(_e) = Repository::init(data_dir) {
+                println!("Failed to initialize repository {:?}", _e);
             }
         } else {
             // check if it's already initialized
+
 
         }
     }
