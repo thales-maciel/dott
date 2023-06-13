@@ -13,7 +13,7 @@ Joining the Dotr party is as easy as falling off a log:
 1. Kick things off with `dotr init`. This will create a fresh git repo.
 2. Give dotr a list of globs in your `$HOME/.config/dotr/dotr.config` file. Globs are all relative to your home folder.
 3. Run `dotr sync` to *copy* all matching files to your repo, keeping your home folder's original structure intact.
-4. Run `dotr cd` to go to the git repo. Manage your dotfiles using git. Do whatever you want. Dotr is not your mom.
+4. Run `dotr pwd` to print the path go to the git repo. Manage your dotfiles using git. Do whatever you want. Dotr is not your mom.
 5. Use `dotr install` to copy the files from the repo back to their home.
 
 Dotr is a simple, beta, lightweight solution. And by that i mean it's a work in progress. Got a cool idea for dotr? Feel free to make a pull request.
@@ -22,7 +22,7 @@ Dotr is a simple, beta, lightweight solution. And by that i mean it's a work in 
 - *How to ignore files?*
     Use a .gitignore file. All globs are relative to your home folder. I wonder if this was a good idea...
 - *Wheres the repo?*
-    Run `dotr cd` followed by `pwd`.
+    Run `dotr pwd`.
 - *Can i change the repo location?*
     No. Unless you can change my mind about it.
 - *Why rust?*

@@ -126,16 +126,18 @@ fn main() -> Result<()> {
     env::set_current_dir(home)?;
 
     let cli = Cli::parse();
-    let res = match &cli.command {
+    match &cli.command {
         Commands::Init => {
             init()?;
         },
         Commands::Sync => {
             sync()?;
         },
+        Commands::Pwd => {
+            println!("{}", get_data_dir().display());
+        }
         _ => {}
     };
-    println!("res: {:#?}", res);
     Ok(())
 }
 
@@ -155,8 +157,8 @@ pub enum Commands {
     Init,
     /// Updates the Dotr repository with all tracked files
     Sync,
-    /// Goes to the Dotr repository directory
-    Cd,
+    /// Prints the Dotr repository directory location
+    Pwd,
     /// Lists all tracked files
     Ls,
     /// Places all tracked files into their destination
