@@ -12,7 +12,7 @@ Joining the Dotr party is as easy as falling off a log:
 
 1. Kick things off with `dotr init`. This will create a fresh git repo.
 2. Give dotr a list of globs in your `$HOME/.config/dotr/dotr.config` file. Globs are all relative to your home folder.
-3. Run `dotr sync` to *copy* all matching files to your repo, keeping your home folder's original structure intact.
+3. Run `dotr sync` to clear the git repo and to *copy* all matching files to your repo, keeping your home folder's original structure intact.
 4. Run `dotr pwd` to print the path go to the git repo. Manage your dotfiles using git. Do whatever you want. Dotr is not your mom.
 5. Use `dotr install` to copy the files from the repo back to their home.
 
