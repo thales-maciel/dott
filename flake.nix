@@ -12,52 +12,39 @@
     inputs.flake-parts.lib.mkFlake { inherit inputs; } {
       systems = [ "x86_64-linux" ];
 
-      perSystem = { pkgs, lib, config, ... }:
-      let
-        inherit (lib.importTOML (inputs.self + "/Cargo.toml")) package;
-      in
-      {
-        packages = {
-          default = pkgs.rustPlatform.buildRustPackage {
-            inherit (package) version;
+      perSystem = { pkgs, lib, config, ...}:
+        let
+          src = inputs.self;
+          buildInputs = with pkgs; [ dbus openssl ];
+          nativeBuildInputs = with pkgs; [ pkg-config ];
+          inherit (lib.importTOML (src + "/Cargo.toml")) package;
+        in
+        {
+          packages = {
+            default = pkgs.rustPlatform.buildRustPackage {
+              pname = package.name;
+              inherit (package) version;
+              inherit src buildInputs nativeBuildInputs;
+              cargoLock.lockFile = (src + "/Cargo.lock");
+            };
+          };
 
-            cargoLock.lockFile = (inputs.self + "/Cargo.lock");
-            pname = package.name;
-            src = inputs.self;
+          devShells.default = pkgs.mkShell {
+            inherit buildInputs nativeBuildInputs;
+            packages = with pkgs; [
+              cargo
+              rustc
+              rustfmt
+              clippy
+            ];
+          };
 
-            buildInputs = with pkgs; [
-              dbus
-              openssl
-            ];
-            nativeBuildInputs = with pkgs; [
-              pkg-config
-            ];
-            dbus = pkgs.dbus;
+          apps = {
+            default = {
+              program = "${config.packages.default}/bin/dotr";
+              type = "app";
+            };
           };
         };
-
-        devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            dbus
-            openssl
-          ];
-          nativeBuildInputs = with pkgs; [
-            pkg-config
-          ];
-          dbus = pkgs.dbus;
-          packages = with pkgs; [
-            cargo
-            rustc
-            rustfmt
-          ];
-        };
-
-        apps = {
-          default = {
-            program = "${config.packages.default}/bin/dotr";
-            type = "app";
-          };
-        };
-      };
     };
 }
