@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use crate::prelude::*;
 
 mod error;
@@ -14,164 +16,161 @@ use std::{
     path::PathBuf,
 };
 
+
+pub trait SyncedDir {
+    fn get_file_paths(&self) -> Result<Vec<PathBuf>>;
+    fn update_files(&self, source: &Slice) -> Result<()>;
+}
+
+
+pub struct Slice {
+    root_path: PathBuf,
+    globs: Vec<String>,
+    ignore_patterns: Vec<String>,
+}
+
+fn is_ignored(ignore_patterns: &Vec<String>, path: &PathBuf, root_path: &PathBuf) -> bool {
+    ignore_patterns
+        .into_iter()
+        .map(|g| Pattern::new(root_path.join(g).to_str().unwrap()).unwrap())
+        .any(|p| p.matches(&path.to_str().unwrap()))
+}
+
+impl SyncedDir for Slice {
+    fn get_file_paths(&self) -> Result<Vec<PathBuf>> {
+        self.globs.clone().into_iter()
+            .flat_map(|pattern| glob(&pattern).unwrap())
+            .map(|v| v.map_err(|_| Error::Generic("Failed to read glob pattern".into())))
+            .collect::<Result<Vec<_>>>()
+            .map(|paths| paths.clone().into_iter()
+                .unique()
+                .map(|p| self.root_path.join(p))
+                .filter(|path| path.is_file() && !is_ignored(&self.ignore_patterns, path, &self.root_path))
+                .collect())
+            .map_err(|_| Error::Generic("Failed to read glob pattern".into()))
+    }
+
+    fn update_files(&self, source: &Slice) -> Result<()> {
+        let current_files = self.get_file_paths()?;
+        for file in current_files {
+            println!("Removing file {:?}", file);
+            remove_file(file)?;
+        }
+        let files_to_copy = source.get_file_paths()?;
+        for file in files_to_copy {
+            let relative_path = &file.strip_prefix(&source.root_path).unwrap();
+            let absolute_path = self.root_path.join(relative_path);
+            if let Err(_) = create_dir_all(absolute_path.parent().unwrap()) {
+                return Err(Error::Generic("Failed to create parent dir".into()));
+            }
+            println!("Copying {:#?} to {:#?}", file, absolute_path);
+            if let Err(_) = copy(file, absolute_path) {
+                return Err(Error::Generic("Failed to copy file".into()));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Slice {
+    fn new(root_path: PathBuf, globs: Vec<String>, ignore_patterns: Vec<String>) -> Self {
+        Self {root_path, globs, ignore_patterns}
+    }
+}
+
+pub struct Dotr {
+    repo: Slice,
+    home: Slice
+}
+
+impl Dotr {
+    fn new(repo: Slice, home: Slice) -> Result<Self> {
+        Ok(Self {repo, home})
+    }
+
+    fn sync(&self) -> Result<()> {
+        self.repo.update_files(&self.home)
+    }
+
+    fn install(&self) -> Result<()> {
+        self.home.update_files(&self.repo)
+    }
+}
+
 pub fn assert_repo_exists(dir: &PathBuf) -> Result<()> {
+    if let Err(_) = create_dir_all(&dir) {
+        return Err(Error::Generic("Failed to create data directory".into()));
+    };
+
     match Repository::init(dir) {
         Ok(_) => Ok(()),
         Err(_) => Err(Error::Generic("Failed to initialize repository".into())),
     }
 }
 
-pub fn init() -> Result<()> {
-    let data_dir = get_data_dir();
-    if let Err(_) = create_dir_all(&data_dir) {
-        return Err(Error::Generic("Failed to create data directory".into()));
-    };
-    return assert_repo_exists(&data_dir);
-}
-
-pub fn get_ignored_globs() -> Vec<String> {
-    if let Ok(lines) = read_to_string(get_ignore_file()) {
+pub fn get_patterns_from_file(file_path: &PathBuf) -> Vec<String> {
+    if let Ok(lines) = read_to_string(file_path) {
         return lines.lines().map(|l| l.to_string()).collect();
     };
     vec![]
 }
 
-pub fn get_config_globs() -> Vec<String> {
-    if let Ok(lines) = read_to_string(get_config_file()) {
-        return lines.lines().map(|l| l.to_string()).collect();
+pub fn get_repo_dir() -> Result<PathBuf> {
+    let Some(project_dir) = ProjectDirs::from("dev", "thales-maciel", "dotr") else {
+        return Err(Error::Generic("No valid path could be retrieved from system".into()))
     };
-    vec![]
+    Ok(project_dir.data_dir().to_owned())
 }
 
 pub fn get_ignore_file() -> PathBuf {
-    get_data_dir().join(".gitignore").into()
+    get_repo_dir().unwrap().join(".gitignore").into()
 }
 
-pub fn get_config_file() -> PathBuf {
-    ProjectDirs::from("dev", "thales-maciel", "dotr")
-        .unwrap()
-        .config_dir()
-        .join("dotr.config")
-        .to_str()
-        .unwrap()
-        .into()
+// todo: make this a get_or_create instead
+pub fn get_config_file() -> Result<PathBuf> {
+    let Some(project_dir) = ProjectDirs::from("dev", "thales-maciel", "dotr") else {
+        return Err(Error::Generic("No valid path could be retrieved from system".into()))
+    };
+    Ok(project_dir.config_dir().join("dotr.config"))
 }
 
-pub fn get_home_dir() -> PathBuf {
-    BaseDirs::new().unwrap().home_dir().to_owned()
-}
-
-pub fn get_data_dir() -> PathBuf {
-    ProjectDirs::from("dev", "thales-maciel", "dotr")
-        .unwrap()
-        .data_dir()
-        .to_owned()
-}
-
-pub fn get_absolute_path(path: &PathBuf) -> PathBuf {
-    PathBuf::from(get_home_dir()).join(path)
-}
-
-pub fn get_files_to_sync() -> Result<Vec<PathBuf>> {
-    let globs = get_config_globs();
-    let res: std::result::Result<Vec<PathBuf>, glob::GlobError> = globs
-        .into_iter()
-        .flat_map(|pattern| glob(&pattern).expect("Failed to read glob pattern"))
-        .collect();
-
-    if let Ok(paths) = res {
-        return Ok(paths.into_iter().unique().collect());
-    } else {
-        return Err(Error::Generic("Failed to read glob pattern".into()));
-    }
-}
-
-pub fn get_files_to_delete() {
-    let data_dir = get_data_dir();
-    let data_dir_files: glob::Paths =
-        glob(&format!("{}/**/*", data_dir.to_str().unwrap())).unwrap();
-
-    for entry in data_dir_files {
-        let path = entry.unwrap();
-        let mut ignore_globs = vec![".gitignore".to_string(), "asdf".to_string()];
-        ignore_globs.append(get_ignored_globs().as_mut());
-        let ignore_patterns: Vec<Pattern> = ignore_globs
-            .into_iter()
-            .map(|g| Pattern::new(&g).unwrap())
-            .collect();
-        if ignore_patterns
-            .iter()
-            .any(|p| p.matches(&path.to_str().unwrap()))
-        {
-            if path.is_file() {
-                println!("Removing file {:?}", path.to_str());
-                if let Err(_) = remove_file(&path) {
-                    println!("Failed to delete file: {:?}", path.to_str());
-                }
-            }
-        }
-    }
-}
-
-pub fn sync() -> Result<()> {
-    get_files_to_delete();
-    // let ignore_globs = get_ignored_globs();
-    // remove all files and directories that don't match any of the ignore patterns
-    // get all PathBufs in the data_dir directory
-
-    if let Ok(paths) = get_files_to_sync() {
-        let ignore_globs = get_ignored_globs();
-        // create vector of Patterns from ignore globs
-        let ignore_patterns: Vec<Pattern> = ignore_globs
-            .into_iter()
-            .map(|g| Pattern::new(&g).unwrap())
-            .collect();
-        // for path in paths
-        for path in paths {
-            if !ignore_patterns
-                .iter()
-                .any(|p| p.matches(&path.to_str().unwrap()))
-            {
-                // ensure dir exists before copying
-                if let Err(e) = create_dir_all(get_data_dir().join(path.parent().unwrap())) {
-                    println!("path {:#?}", &path);
-                    println!("err {:#?}", e);
-                    return Err(Error::Generic("Failed to create parent dir".into()));
-                }
-                if let Err(e) = copy(&path, get_data_dir().join(path.to_str().unwrap())) {
-                    println!("path {:#?}", &path);
-                    println!("secarg {:#?}", get_data_dir().join(path.to_str().unwrap()));
-                    println!("err out {:#?}", e);
-                    return Err(Error::Generic("Failed to copy file".into()));
-                }
-                println!("data_dir is {:#?}", get_data_dir());
-                println!(
-                    "Copying {:#?} to {:#?}",
-                    &path,
-                    get_data_dir().join(path.to_str().unwrap())
-                );
-            }
-        }
-        return Ok(());
-    }
-    Err(Error::Generic("Failed to copy files".into()))
+pub fn get_home_dir() -> Result<PathBuf> {
+    let Some(base_dir) = BaseDirs::new() else {
+        return Err(Error::Generic("No valid path could be retrieved from system".into()))
+    };
+    Ok(base_dir.home_dir().to_owned())
 }
 
 fn main() -> Result<()> {
+    let home_dir = get_home_dir()?;
+
     // Always run from home dir
-    let foo = get_home_dir();
-    env::set_current_dir(foo)?;
+    env::set_current_dir(&home_dir)?;
+
+    let repo_dir = get_repo_dir()?;
+    assert_repo_exists(&repo_dir)?;
+
+    let ignore_file = repo_dir.join(".gitignore");
+    let ignore_patterns = get_patterns_from_file(&ignore_file);
+
+    let config_file = get_config_file()?;
+    let config_patterns = get_patterns_from_file(&config_file);
+
+    let repo = Slice::new(repo_dir, config_patterns.clone(), ignore_patterns.clone());
+    let home = Slice::new(home_dir, config_patterns.clone(), ignore_patterns.clone());
+
+    let dotr = Dotr::new(repo, home)?;
 
     let cli = Cli::parse();
     match &cli.command {
-        Commands::Init => {
-            init()?;
-        }
         Commands::Sync => {
-            sync()?;
+            dotr.sync()?;
+        }
+        Commands::Install => {
+            dotr.install()?;
         }
         Commands::Pwd => {
-            println!("{}", get_data_dir().display());
+            println!("{}", get_repo_dir()?.display());
         }
         _ => {}
     };
@@ -190,8 +189,6 @@ pub struct Cli {
 pub enum Commands {
     /// Adds paths to track
     Add(AddArgs),
-    /// Initializes the Dotr repository
-    Init,
     /// Updates the Dotr repository with all tracked files
     Sync,
     /// Prints the Dotr repository directory location
@@ -199,7 +196,7 @@ pub enum Commands {
     /// Lists all tracked files
     Ls,
     /// Places all tracked files into their destination
-    Install(InstallArgs),
+    Install,
 }
 
 #[derive(Args)]
