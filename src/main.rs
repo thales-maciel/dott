@@ -9,8 +9,8 @@ use git2::Repository;
 use glob::{glob, Pattern};
 use std::{
     env,
-    fs::{create_dir_all, read_to_string, remove_file, copy},
-    path::PathBuf, io,
+    fs::{create_dir_all, read_to_string, remove_file, copy, File, OpenOptions},
+    path::PathBuf, io::{self, Write},
 };
 
 pub struct Dir {
@@ -89,6 +89,27 @@ impl Dotr {
         }
         Ok(())
     }
+
+    fn add(&self, paths: &Vec<String>) -> Result<()> {
+        let config_file_path = get_or_create_config_file()?;
+        let mut config_file = OpenOptions::new()
+            .append(true)
+            .open(&config_file_path)
+            .map_err(|_| Error::Generic("Failed to open config file".into()))?;
+
+        for path in paths {
+            let absolute_path = PathBuf::from(path).canonicalize().map_err(|_| Error::Generic("Failed to resolve absolute file path".into()))?;
+            let relative_to_home = PathBuf::from(absolute_path.strip_prefix(&self.home.root_path).unwrap());
+
+            let Some(path_canonical) = relative_to_home.to_str() else {
+                return Err(Error::Generic("Failed to convert path to string".into()));
+            };
+            println!("path_canonical {}", path_canonical);
+            config_file.write_all(f!("\n{}", path_canonical).as_bytes())
+                .map_err(|_| Error::Generic("Failed to write to config file".into()))?;
+        }
+        Ok(())
+    }
 }
 
 fn run_in_dir<T, F: FnOnce() -> T>(dir: &PathBuf, f: F) -> io::Result<T> {
@@ -150,10 +171,18 @@ fn get_repo_dir() -> Result<PathBuf> {
 }
 
 // todo: make this a get_or_create instead
-fn get_config_file() -> Result<PathBuf> {
+fn get_or_create_config_file() -> Result<PathBuf> {
     let Some(project_dir) = ProjectDirs::from("dev", "thales-maciel", "dotr") else {
         return Err(Error::Generic("No valid path could be retrieved from system".into()))
     };
+    let dotr_dir = project_dir.config_dir();
+    let config_file = dotr_dir.join("dotr.config");
+    if !config_file.exists() {
+        create_dir_all(&dotr_dir)?;
+        File::create(&config_file)?;
+        println!("Created config file at {}", config_file.display());
+        println!("Add globs to it to start syncing your files.");
+    }
     Ok(project_dir.config_dir().join("dotr.config"))
 }
 
@@ -169,7 +198,7 @@ fn build_dotr() -> Result<Dotr> {
     let repo_dir = get_repo_dir()?;
     assert_repo_exists(&repo_dir)?;
 
-    let include_file = get_config_file()?;
+    let include_file = get_or_create_config_file()?;
     let ignore_file = repo_dir.join(".gitignore");
 
     let include_patterns = get_patterns_from_file(&include_file);
@@ -203,6 +232,9 @@ fn main() -> Result<()> {
         Commands::Pwd => {
             println!("{}", get_repo_dir()?.display());
         }
+        Commands::Add(args) => {
+            dotr.add(&args.paths)?;
+        }
     };
     Ok(())
 }
@@ -218,7 +250,7 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Commands {
     /// Adds paths to track
-    // Add(AddArgs),
+    Add(AddArgs),
     /// Updates the Dotr repository with all tracked files
     Sync,
     /// Prints the Dotr repository directory location

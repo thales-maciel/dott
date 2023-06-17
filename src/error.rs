@@ -5,8 +5,6 @@ pub enum Error {
     #[error("Generic {0}")]
     Generic(String),
 
-    #[error("Invalid Pattern {0}")]
-    InvalidPattern(String),
 
     #[error(transparent)]
     IO(#[from] std::io::Error),
