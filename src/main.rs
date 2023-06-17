@@ -93,20 +93,26 @@ impl Dotr {
     fn add(&self, paths: &Vec<String>) -> Result<()> {
         let config_file_path = get_or_create_config_file()?;
         let mut config_file = OpenOptions::new()
+            .read(true)
             .append(true)
             .open(&config_file_path)
             .map_err(|_| Error::Generic("Failed to open config file".into()))?;
+
+        let config_file_lines = read_to_string(&config_file_path)
+            .map_err(|_| Error::Generic("Failed to read config file".into()))?;
 
         for path in paths {
             let absolute_path = PathBuf::from(path).canonicalize().map_err(|_| Error::Generic("Failed to resolve absolute file path".into()))?;
             let relative_to_home = PathBuf::from(absolute_path.strip_prefix(&self.home.root_path).unwrap());
 
-            let Some(path_canonical) = relative_to_home.to_str() else {
+            let Some(glob) = relative_to_home.to_str() else {
                 return Err(Error::Generic("Failed to convert path to string".into()));
             };
-            println!("path_canonical {}", path_canonical);
-            config_file.write_all(f!("\n{}", path_canonical).as_bytes())
-                .map_err(|_| Error::Generic("Failed to write to config file".into()))?;
+
+            if !config_file_lines.split("\n").any(|line| line == glob) {
+                println!("glob added {}", glob);
+                writeln!(config_file, "{}", glob).map_err(|_| Error::Generic("Failed to write to config file".into()))?;
+            }
         }
         Ok(())
     }
@@ -134,9 +140,9 @@ fn get_tracked_files(root_path: &PathBuf, include_patterns: &Vec<String>, exclud
             for path in paths {
                 let relative_path = path.map_err(|_| Error::Generic("Bad pattern".into()))?;
                 if ignore_patterns.iter().any(|p| p.matches(relative_path.to_str().unwrap())) {
-                    println!("Ignoring file {}", &root_path.join(&relative_path).display());
+                    println!("\tCurrently ignoring file {}", &relative_path.display());
                 } else {
-                    println!("Added file {}", &root_path.join(&relative_path).display());
+                    println!("\tCurrently tracking file {}", &relative_path.display());
                     files.push(to_tracked_file(&relative_path, &root_path));
                 }
             }
