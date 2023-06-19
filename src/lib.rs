@@ -100,7 +100,6 @@ impl Dotr {
 
     pub fn sync(&self) -> Result<()> {
         let (repo, home) = self.get_repo_and_home()?;
-
         let repo_files = repo.tracked_files;
         for file in repo_files {
             println!("Removing file {}", &file.absolute_path.display());
@@ -121,9 +120,18 @@ impl Dotr {
     }
 
     fn get_repo_and_home(&self) -> Result<(Dir, Dir)> {
+        if let false = &self.repo_dir.exists() {
+            println!("Creating repository directory");
+            create_dir_all(&self.repo_dir).map_err(|_| Error::Generic("Could not create repository directory".into()))?;
+        }
+        if let false = &self.config_dir.exists() {
+            println!("Creating repository directory");
+            create_dir_all(&self.config_dir).map_err(|_| Error::Generic("Could not create config directory".into()))?;
+        }
         let include_file = get_or_create_config_file(&self.config_dir)?;
         let ignore_file = &self.repo_dir.join(".gitignore");
         let include_patterns = get_patterns_from_file(&include_file);
+        println!("Found include patterns: {:?}", include_patterns);
         let ignore_patterns = get_patterns_from_file(&ignore_file);
         let mut exclude_patterns = vec![".git/**".to_string(), ".gitignore".to_string()];
         exclude_patterns.extend_from_slice(&ignore_patterns);
@@ -134,35 +142,23 @@ impl Dotr {
         Ok((repo, home))
     }
 
-    // pub fn force_install(&self) -> Result<()> {
-    //     let repo_files = &self.repo.tracked_files;
-    //     for file in repo_files {
-    //         let destination = self.home.root_path.join(&file.relative_path);
-    //         println!("Copying file {} to {}", file.absolute_path.display(), destination.display());
-    //         match copy(&file.absolute_path, destination) {
-    //             Ok(_) => Ok(()),
-    //             Err(_) => Err(Error::Generic("Failed to copy file".into())),
-    //         }?;
-    //     }
-    //     Ok(())
-    // }
-
-    pub fn install(&self) -> Result<()> {
+    pub fn install(&self, force: bool) -> Result<()> {
         let (repo, home) = self.get_repo_and_home()?;
         let repo_files = repo.tracked_files;
         for file in repo_files {
             let destination = home.root_path.join(&file.relative_path);
-            if !destination.exists() {
-                let Some(parent_dir) = destination.parent() else {
-                    return Err(Error::Generic("Path without parent".into()));
-                };
-                println!("Copying file {} to {}", file.absolute_path.display(), destination.display());
-                create_dir_all(&parent_dir)
-                    .map_err(|_| Error::Generic("Failed to create parent dir".into()))?;
-                copy(&file.absolute_path, &destination)
-                    .map_err(|_| Error::Generic("Failed to copy file".into()))?;
+            if destination.exists() && !force {
+                println!("{} already exists, skipping copy", destination.display());
+                return Ok(())
             }
-            println!("{} already exists, skipping copy", file.relative_path.display());
+            let Some(parent_dir) = destination.parent() else {
+                return Err(Error::Generic("Path without parent".into()));
+            };
+            println!("Copying file {} to {}", file.absolute_path.display(), destination.display());
+            create_dir_all(&parent_dir)
+                .map_err(|_| Error::Generic("Failed to create parent dir".into()))?;
+            copy(&file.absolute_path, &destination)
+                .map_err(|_| Error::Generic("Failed to copy file".into()))?;
         }
         Ok(())
     }
