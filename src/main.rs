@@ -39,8 +39,8 @@ fn main() -> Result<()> {
         Commands::Sync => {
             dotr.sync()?;
         }
-        Commands::Install => {
-            dotr.install()?;
+        Commands::Install(args) => {
+            dotr.install(args.force)?;
         }
         Commands::Pwd => {
             println!("{}", get_repo_dir()?.display());
@@ -69,7 +69,7 @@ pub enum Commands {
     /// Prints the Dotr repository directory location
     Pwd,
     /// Places all tracked files into their destination
-    Install,
+    Install(InstallArgs),
 }
 
 #[derive(Args)]
