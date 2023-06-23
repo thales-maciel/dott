@@ -1,52 +1,52 @@
-use dotr::{
-    Dotr,
-    prelude::*,
-};
+use dotr::{prelude::*, sync_dirs};
 
 use clap::{Args, Parser, Subcommand};
-use directories::{BaseDirs, ProjectDirs};
+use directories::BaseDirs;
 use std::path::PathBuf;
-
-fn get_repo_dir() -> Result<PathBuf> {
-    let Some(project_dir) = ProjectDirs::from("dev", "thales-maciel", "dotr") else {
-        return Err(Error::Generic("No valid path could be retrieved from system".into()))
-    };
-    Ok(project_dir.data_dir().to_owned())
-}
 
 fn get_home_dir() -> Result<PathBuf> {
     let Some(base_dir) = BaseDirs::new() else {
-        return Err(Error::Generic("No valid path could be retrieved from system".into()))
+        return Err(DotrError::Generic("No valid path could be retrieved from system".into()))
     };
     Ok(base_dir.home_dir().to_owned())
 }
 
-fn get_config_dir() -> Result<PathBuf> {
-    let Some(project_dir) = ProjectDirs::from("dev", "thales-maciel", "dotr") else {
-        return Err(Error::Generic("No valid path could be retrieved from system".into()))
-    };
-    Ok(project_dir.config_dir().to_owned())
-}
-
 fn main() -> Result<()> {
-    let home_dir = get_home_dir()?;
-    let repo_dir = get_repo_dir()?;
-    let config_dir = get_config_dir()?;
-    let dotr = Dotr::new(home_dir, repo_dir, config_dir);
+    let cwd = std::env::current_dir()?;
 
     let cli = Cli::parse();
     match &cli.command {
-        Commands::Sync => {
-            dotr.sync()?;
-        }
         Commands::Install(args) => {
-            dotr.install(args.force)?;
+            let source = &cwd;
+            let patterns_file = &cwd.join("dotr.config");
+            let target = get_home_dir()?;
+            let raw = &args.raw;
+
+            println!("Will use patterns from {}", patterns_file.display());
+            println!("To gather files from {}", source.display());
+            println!("And sync them to {}", target.display());
+            println!();
+
+            if let Err(e) = sync_dirs(&patterns_file, &source, &target, raw) {
+                eprintln!("{}", e);
+                std::process::exit(1);
+            }
         }
-        Commands::Pwd => {
-            println!("{}", get_repo_dir()?.display());
-        }
-        Commands::Add(args) => {
-            dotr.add(&args.paths)?;
+        Commands::Refresh(args) => {
+            let target = &cwd;
+            let patterns_file = &cwd.join("dotr.config");
+            let source = get_home_dir()?;
+            let raw = &args.raw;
+
+            println!("Will use patterns from {}", patterns_file.display());
+            println!("To gather files from {}", source.display());
+            println!("And sync them to {}", target.display());
+            println!();
+
+            if let Err(e) = sync_dirs(&patterns_file, &source, &target, raw) {
+                eprintln!("{}", e);
+                std::process::exit(1);
+            }
         }
     };
     Ok(())
@@ -62,23 +62,20 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Adds paths to track
-    Add(AddArgs),
-    /// Updates the Dotr repository with all tracked files
-    Sync,
-    /// Prints the Dotr repository directory location
-    Pwd,
+    /// Pulls files from home into the current directory.
+    Refresh(SyncArgs),
     /// Places all tracked files into their destination
-    Install(InstallArgs),
+    Install(SyncArgs),
+}
+
+#[derive(Args)]
+pub struct SyncArgs {
+    #[arg(short, long, default_value_t = false)]
+    pub raw: bool
 }
 
 #[derive(Args)]
 pub struct InstallArgs {
     #[arg(short, long)]
     pub force: bool,
-}
-
-#[derive(Args)]
-pub struct AddArgs {
-    pub paths: Vec<PathBuf>,
 }
