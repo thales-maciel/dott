@@ -153,6 +153,8 @@ pub fn sync_dirs(pattern_file: &PathBuf, from_dir: &PathBuf, to_dir: &PathBuf, r
         for remove in remove_ops.iter() {
             remove_file(&remove.0)?;
         }
+
+        println!("{}", style("Sync completed successfully").bold());
     } 
 
     Ok(())
