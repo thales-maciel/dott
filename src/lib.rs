@@ -1,6 +1,6 @@
 use std::{
     path::PathBuf,
-    fs::{read_to_string, copy, remove_file},
+    fs::{read_to_string, copy, remove_file, create_dir_all},
     env,
 };
 use console::{style, Term};
@@ -135,10 +135,12 @@ pub fn sync_dirs(pattern_file: &PathBuf, from_dir: &PathBuf, to_dir: &PathBuf, r
         .interact_on(&Term::stdout())? {
         // add all files
         for add in add_ops.iter() {
+            create_dir_all(&add.to.parent().unwrap())?;
             copy(&add.from, &add.to)?;
         }
         // overwrite all files
         for overwrite in overwrite_ops.iter() {
+            create_dir_all(&overwrite.to.parent().unwrap())?;
             copy(&overwrite.from, &overwrite.to)?;
         }
         // remove all files
