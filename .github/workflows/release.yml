@@ -86,7 +86,8 @@ jobs:
             cargo test
 
   linux_deb:
-    needs: ["check_nix", "extract_version"]
+    name: Linux Debian Release
+    needs: ["check_nix", "extract_version", "create_release"]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
