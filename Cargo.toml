@@ -1,12 +1,12 @@
 [package]
 name = "dott"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 description = "Simple dotfile management"
 license = "MIT"
 keywords = ["dott", "dotfiles"]
-homepage = "https://github.com/thales-maciel/dotr"
-repository = "https://github.com/thales-maciel/dotr"
+homepage = "https://github.com/thales-maciel/dott"
+repository = "https://github.com/thales-maciel/dott"
 categories = ["command-line-utilities"]
 authors = ["Thales Maciel <contato@thalesmaciel.com>"]
 
