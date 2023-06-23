@@ -32,38 +32,38 @@ pub fn sync_dirs(
     // resolve absolute paths
     let from_dir = from_dir
         .absolutize()
-        .map_err(|_| DotrError::PathNotFound(f!("{:?}", from_dir)))?;
+        .map_err(|_| DottError::PathNotFound(f!("{:?}", from_dir)))?;
     let to_dir = to_dir
         .absolutize()
-        .map_err(|_| DotrError::PathNotFound(f!("{:?}", to_dir)))?;
+        .map_err(|_| DottError::PathNotFound(f!("{:?}", to_dir)))?;
 
     // assert from_dir and to_dir are directories
     if !from_dir.exists() {
-        return Err(DotrError::PathNotFound(f!("{:?}", from_dir)));
+        return Err(DottError::PathNotFound(f!("{:?}", from_dir)));
     }
     if !from_dir.is_dir() {
-        return Err(DotrError::NotDir(f!("{:?}", from_dir)));
+        return Err(DottError::NotDir(f!("{:?}", from_dir)));
     }
     if !to_dir.exists() {
-        return Err(DotrError::PathNotFound(f!("{:?}", to_dir)));
+        return Err(DottError::PathNotFound(f!("{:?}", to_dir)));
     }
     if !to_dir.is_dir() {
-        return Err(DotrError::NotDir(f!("{:?}", to_dir)));
+        return Err(DottError::NotDir(f!("{:?}", to_dir)));
     }
     // assert pattern_file is a file
     if !pattern_file.exists() {
-        return Err(DotrError::PathNotFound(f!("{:?}", pattern_file)));
+        return Err(DottError::PathNotFound(f!("{:?}", pattern_file)));
     }
     if !pattern_file.is_file() {
-        return Err(DotrError::NotFile(f!("{:?}", pattern_file)));
+        return Err(DottError::NotFile(f!("{:?}", pattern_file)));
     }
 
     // go to from_dir
-    env::set_current_dir(&from_dir).map_err(DotrError::IO)?;
+    env::set_current_dir(&from_dir).map_err(DottError::IO)?;
 
     // get all patterns from file
     let patterns = read_to_string(pattern_file)
-        .map_err(DotrError::IO)?
+        .map_err(DottError::IO)?
         .lines()
         .map(|l| l.to_string())
         .collect::<Vec<String>>();
@@ -75,9 +75,9 @@ pub fn sync_dirs(
 
     let mut files: Vec<PathBuf> = Vec::new();
     for pattern in &patterns {
-        let paths = glob(pattern).map_err(|e| DotrError::BadGlob(pattern.clone(), e))?;
+        let paths = glob(pattern).map_err(|e| DottError::BadGlob(pattern.clone(), e))?;
         for path in paths {
-            let path = path.map_err(|e| DotrError::PathAccess(pattern.clone(), e))?;
+            let path = path.map_err(|e| DottError::PathAccess(pattern.clone(), e))?;
             if path.is_dir() {
                 continue;
             }
@@ -101,14 +101,14 @@ pub fn sync_dirs(
     }
 
     // go to to_dir
-    env::set_current_dir(&to_dir).map_err(DotrError::IO)?;
+    env::set_current_dir(&to_dir).map_err(DottError::IO)?;
 
     // get all matching destination files
     let mut files_to_delete: Vec<PathBuf> = Vec::new();
     for pattern in &patterns {
-        let paths = glob(pattern).map_err(|e| DotrError::BadGlob(pattern.clone(), e))?;
+        let paths = glob(pattern).map_err(|e| DottError::BadGlob(pattern.clone(), e))?;
         for path in paths {
-            let path = path.map_err(|e| DotrError::PathAccess(pattern.clone(), e))?;
+            let path = path.map_err(|e| DottError::PathAccess(pattern.clone(), e))?;
             if path.is_dir() {
                 continue;
             }

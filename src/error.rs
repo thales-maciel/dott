@@ -1,7 +1,7 @@
 use glob::{GlobError, PatternError};
 
 #[derive(thiserror::Error, Debug)]
-pub enum DotrError {
+pub enum DottError {
     #[error("Generic {0}")]
     Generic(String),
 

@@ -38,7 +38,7 @@
 
           apps = {
             default = {
-              program = "${config.packages.default}/bin/dotr";
+              program = "${config.packages.default}/bin/dott";
               type = "app";
             };
           };

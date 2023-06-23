@@ -1,4 +1,4 @@
-use dotr::{prelude::*, sync_dirs};
+use dott::{prelude::*, sync_dirs};
 
 use clap::{Args, Parser, Subcommand};
 use directories::BaseDirs;
@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 fn get_home_dir() -> Result<PathBuf> {
     let Some(base_dir) = BaseDirs::new() else {
-        return Err(DotrError::Generic("No valid path could be retrieved from system".into()))
+        return Err(DottError::Generic("No valid path could be retrieved from system".into()))
     };
     Ok(base_dir.home_dir().to_owned())
 }
@@ -18,7 +18,7 @@ fn main() -> Result<()> {
     match &cli.command {
         Commands::Install(args) => {
             let source = &cwd;
-            let patterns_file = &cwd.join("dotr.config");
+            let patterns_file = &cwd.join("dott.config");
             let target = get_home_dir()?;
             let raw = &args.raw;
 
@@ -34,7 +34,7 @@ fn main() -> Result<()> {
         }
         Commands::Refresh(args) => {
             let target = &cwd;
-            let patterns_file = &cwd.join("dotr.config");
+            let patterns_file = &cwd.join("dott.config");
             let source = get_home_dir()?;
             let raw = &args.raw;
 
