@@ -63,6 +63,7 @@ pub fn sync_dirs(pattern_file: &PathBuf, from_dir: &PathBuf, to_dir: &PathBuf, r
         let paths = glob(&pattern).map_err(|e| DotrError::BadGlob(pattern.clone(), e))?;
         for path in paths {
             let path = path.map_err(|e| DotrError::PathAccess(pattern.clone(), e))?;
+            if path.is_dir() { continue }
             let absolute_path = from_dir.join(&path);
             if files.iter().find(|f| f.to_owned() == &absolute_path).is_none() {
                 files.push(absolute_path.clone());
@@ -85,6 +86,7 @@ pub fn sync_dirs(pattern_file: &PathBuf, from_dir: &PathBuf, to_dir: &PathBuf, r
         let paths = glob(&pattern).map_err(|e| DotrError::BadGlob(pattern.clone(), e))?;
         for path in paths {
             let path = path.map_err(|e| DotrError::PathAccess(pattern.clone(), e))?;
+            if path.is_dir() { continue }
             let absolute_path = to_dir.join(path);
             if files_to_delete.iter().find(|f| f.to_owned() == &absolute_path).is_none() {
                 files_to_delete.push(absolute_path.clone());
