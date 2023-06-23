@@ -71,7 +71,7 @@ pub enum Commands {
 #[derive(Args)]
 pub struct SyncArgs {
     #[arg(short, long, default_value_t = false)]
-    pub raw: bool
+    pub raw: bool,
 }
 
 #[derive(Args)]

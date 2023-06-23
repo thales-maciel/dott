@@ -1,4 +1,4 @@
-use glob::{PatternError, GlobError};
+use glob::{GlobError, PatternError};
 
 #[derive(thiserror::Error, Debug)]
 pub enum DotrError {
