@@ -1,0 +1,65 @@
+name: Check, build and release (nix)
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*.*.*"
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  check_nix:
+    name: Check
+    runs-on: ubuntu-22.04
+    steps:
+      - name: git checkout
+        uses: actions/checkout@v3
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Check Nixpkgs inputs
+        uses: DeterminateSystems/flake-checker-action@v4
+        with:
+          fail-mode: true
+
+      # Nix-specific logic
+      - name: Check formatting
+        run: |
+          nix develop --command \
+            cargo fmt --check
+      - name: Audit
+        run: |
+          nix develop --command \
+            cargo-deny check
+
+  build_and_test_nix:
+    name: Test and build
+    needs: check_nix
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, macos-12]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: git checkout
+        uses: actions/checkout@v3
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+      - name: Set up Rust cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: dotr-${{ hashFiles('**/Cargo.lock') }}
+      - name: Test
+        run: |
+          nix develop --command \
+            cargo test
+      - name: Build
+        run: nix build
