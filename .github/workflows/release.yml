@@ -81,6 +81,25 @@ jobs:
           nix develop --command \
             cargo test --release
 
+  publish_crate:
+    name: Publish crate
+    needs: ["check_nix", "extract_version", "create_release"]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Print target version
+        run: |
+          echo Publishing version v${{ needs.extract_version.outputs.version }}
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+      - name: Build
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
+        run: |
+          nix develop
+          cargo build -r
+          cargo publish --token ${CRATES_TOKEN}
+
   linux_deb:
     name: Linux Debian Release
     needs: ["check_nix", "extract_version", "create_release"]
