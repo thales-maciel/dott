@@ -88,6 +88,10 @@ pub fn sync_dirs(pattern_file: &PathBuf, from_dir: &PathBuf, to_dir: &PathBuf, r
             let path = path.map_err(|e| DotrError::PathAccess(pattern.clone(), e))?;
             if path.is_dir() { continue }
             let absolute_path = to_dir.join(path);
+            // find out if path is going to be overwritten
+            if overwrite_ops.iter().find(|o| o.to == absolute_path).is_some() {
+                continue
+            }
             if files_to_delete.iter().find(|f| f.to_owned() == &absolute_path).is_none() {
                 files_to_delete.push(absolute_path.clone());
                 remove_ops.push(Remove(absolute_path));
