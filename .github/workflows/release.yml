@@ -5,42 +5,49 @@ on:
     branches:
       - main
     tags:
-      - "v*.*.*"
+      - "v*"
   pull_request:
     branches:
       - main
 
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
-  check_nix:
-    name: Check
+  extract_version:
+    name: Extract version
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Extract version
+        id: "version"
+        run: |
+          DOTT_VERSION=$(grep '^version' Cargo.toml | awk -F '"' '{ print $2 }')
+          echo version: $DOTT_VERSION
+          echo "::set-output name=version::v$DOTT_VERSION"
+
+  create_release:
+    name: Create release
+    needs: ["extract_version"]
     runs-on: ubuntu-22.04
     steps:
-      - name: git checkout
-        uses: actions/checkout@v3
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@main
-
-      - name: Check Nixpkgs inputs
-        uses: DeterminateSystems/flake-checker-action@v4
-        with:
-          fail-mode: true
-
-      # Nix-specific logic
-      - name: Check formatting
+      - uses: actions/checkout@v3
+      - name: Create new release
         run: |
-          nix develop --command \
-            cargo fmt --check
-            # - name: Audit
-            # run: |
-            # nix develop --command \
-            # cargo-deny check
+          COMMIT_HASH=$(git rev-list --max-count=1 HEAD)
+          echo "Creating release: ${{ needs.extract_version.outputs.version }}"
+          echo "for hash: $COMMIT_HASH"
+          gh release create ${{ needs.extract_version.outputs.version }} \
+            -t ${{ needs.extract_version.outputs.version }} \
+            --notes "Automatically released by CI" \
+            --prerelease \
+            --target $COMMIT_HASH
 
-  build_and_test_nix:
-    name: Test and build
-    needs: check_nix
-    strategy:
-      matrix:
-        os: [ubuntu-22.04, macos-12]
+
+  check_nix:
+    name: Check
     runs-on: ubuntu-22.04
     steps:
       - name: git checkout
@@ -55,11 +62,49 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            target/
-          key: dotr-${{ hashFiles('**/Cargo.lock') }}
+          key: dott-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Check Nixpkgs inputs
+        uses: DeterminateSystems/flake-checker-action@v4
+        with:
+          fail-mode: true
+
+      # Nix-specific logic
+      - name: Check formatting
+        run: |
+          nix develop --command \
+            cargo fmt --check
+      - name: Lint
+        run: |
+          nix develop --command \
+            cargo clippy -- -D warnings
       - name: Test
         run: |
           nix develop --command \
             cargo test
-      - name: Build
-        run: nix build
+
+  linux_deb:
+    needs: ["check_nix", "extract_version"]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Print target version
+        run: |
+          echo Using version ${{ needs.extract_version.outputs.version }}
+      - name: Build deb packages
+        run: |
+          nix develop
+          cargo install cargo-deb --version 1.34.0
+          cargo-deb
+          ls target/debian
+      - uses: actions/upload-artifact@v2
+        name: "Upload artifacts"
+        with:
+          name: Debian Artifacts
+          path: |
+            target/debian/dott_${{ needs.extract_version.outputs.version }}_amd64.deb
+      - name: Upload artifacts to GH releases
+        run: |
+          gh release upload ${{ needs.extract_version.outputs.version }} \
+          target/debian/dott_${{ needs.extract_version.outputs.version }}_amd64.deb
+
