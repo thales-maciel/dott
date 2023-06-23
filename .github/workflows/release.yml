@@ -94,6 +94,8 @@ jobs:
       - name: Print target version
         run: |
           echo Using version ${{ needs.extract_version.outputs.version }}
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
       - name: Build deb packages
         run: |
           nix develop
