@@ -75,18 +75,14 @@ pub fn sync_dirs(
 
     let mut files: Vec<PathBuf> = Vec::new();
     for pattern in &patterns {
-        let paths = glob(&pattern).map_err(|e| DotrError::BadGlob(pattern.clone(), e))?;
+        let paths = glob(pattern).map_err(|e| DotrError::BadGlob(pattern.clone(), e))?;
         for path in paths {
             let path = path.map_err(|e| DotrError::PathAccess(pattern.clone(), e))?;
             if path.is_dir() {
                 continue;
             }
             let absolute_path = from_dir.join(&path);
-            if files
-                .iter()
-                .find(|f| f.to_owned() == &absolute_path)
-                .is_none()
-            {
+            if !files.iter().any(|f| f == &absolute_path) {
                 files.push(absolute_path.clone());
                 let target_path = to_dir.join(&path);
                 if target_path.exists() {
@@ -110,7 +106,7 @@ pub fn sync_dirs(
     // get all matching destination files
     let mut files_to_delete: Vec<PathBuf> = Vec::new();
     for pattern in &patterns {
-        let paths = glob(&pattern).map_err(|e| DotrError::BadGlob(pattern.clone(), e))?;
+        let paths = glob(pattern).map_err(|e| DotrError::BadGlob(pattern.clone(), e))?;
         for path in paths {
             let path = path.map_err(|e| DotrError::PathAccess(pattern.clone(), e))?;
             if path.is_dir() {
@@ -118,18 +114,10 @@ pub fn sync_dirs(
             }
             let absolute_path = to_dir.join(path);
             // find out if path is going to be overwritten
-            if overwrite_ops
-                .iter()
-                .find(|o| o.to == absolute_path)
-                .is_some()
-            {
+            if !overwrite_ops.iter().any(|o| o.to == absolute_path) {
                 continue;
             }
-            if files_to_delete
-                .iter()
-                .find(|f| f.to_owned() == &absolute_path)
-                .is_none()
-            {
+            if !files_to_delete.iter().any(|f| f == &absolute_path) {
                 files_to_delete.push(absolute_path.clone());
                 remove_ops.push(Remove(absolute_path));
             }
@@ -185,12 +173,12 @@ pub fn sync_dirs(
     {
         // add all files
         for add in add_ops.iter() {
-            create_dir_all(&add.to.parent().unwrap())?;
+            create_dir_all(add.to.parent().unwrap())?;
             copy(&add.from, &add.to)?;
         }
         // overwrite all files
         for overwrite in overwrite_ops.iter() {
-            create_dir_all(&overwrite.to.parent().unwrap())?;
+            create_dir_all(overwrite.to.parent().unwrap())?;
             copy(&overwrite.from, &overwrite.to)?;
         }
         // remove all files

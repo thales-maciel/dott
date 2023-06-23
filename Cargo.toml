@@ -2,6 +2,12 @@
 name = "dotr"
 version = "0.0.1"
 edition = "2021"
+description = "Simple dotfile management"
+license = "MIT"
+keywords = ["dotr", "dotfiles"]
+homepage = "https://github.com/thales-maciel/dotr"
+repository = "https://github.com/thales-maciel/dotr"
+categories = ["command-line-utilities"]
 
 [dependencies]
 clap = { version = "4.1.1", features = ["derive", "unstable-doc"] }

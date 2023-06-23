@@ -27,7 +27,7 @@ fn main() -> Result<()> {
             println!("And sync them to {}", target.display());
             println!();
 
-            if let Err(e) = sync_dirs(&patterns_file, &source, &target, raw) {
+            if let Err(e) = sync_dirs(patterns_file, source, &target, raw) {
                 eprintln!("{}", e);
                 std::process::exit(1);
             }
@@ -43,7 +43,7 @@ fn main() -> Result<()> {
             println!("And sync them to {}", target.display());
             println!();
 
-            if let Err(e) = sync_dirs(&patterns_file, &source, &target, raw) {
+            if let Err(e) = sync_dirs(patterns_file, &source, target, raw) {
                 eprintln!("{}", e);
                 std::process::exit(1);
             }

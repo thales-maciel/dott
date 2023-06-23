@@ -33,7 +33,6 @@
               rustc
               rustfmt
               clippy
-              cargo-deny
             ];
           };
 
