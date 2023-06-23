@@ -8,6 +8,7 @@ keywords = ["dott", "dotfiles"]
 homepage = "https://github.com/thales-maciel/dotr"
 repository = "https://github.com/thales-maciel/dotr"
 categories = ["command-line-utilities"]
+authors = ["Thales Maciel <contato@thalesmaciel.com>"]
 
 [dependencies]
 clap = { version = "4.1.1", features = ["derive", "unstable-doc"] }
