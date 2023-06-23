@@ -28,7 +28,7 @@ jobs:
         run: |
           DOTT_VERSION=$(grep '^version' Cargo.toml | awk -F '"' '{ print $2 }')
           echo version: $DOTT_VERSION
-          echo "::set-output name=version::v$DOTT_VERSION"
+          echo "::set-output name=version::$DOTT_VERSION"
 
   create_release:
     name: Create release
@@ -39,10 +39,10 @@ jobs:
       - name: Create new release
         run: |
           COMMIT_HASH=$(git rev-list --max-count=1 HEAD)
-          echo "Creating release: ${{ needs.extract_version.outputs.version }}"
+          echo "Creating release: v${{ needs.extract_version.outputs.version }}"
           echo "for hash: $COMMIT_HASH"
-          gh release create ${{ needs.extract_version.outputs.version }} \
-            -t ${{ needs.extract_version.outputs.version }} \
+          gh release create v${{ needs.extract_version.outputs.version }} \
+            -t v${{ needs.extract_version.outputs.version }} \
             --notes "Automatically released by CI" \
             --prerelease \
             --target $COMMIT_HASH
@@ -93,7 +93,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: Print target version
         run: |
-          echo Using version ${{ needs.extract_version.outputs.version }}
+          echo Using version v${{ needs.extract_version.outputs.version }}
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
       - name: Build deb packages
@@ -110,6 +110,6 @@ jobs:
             target/debian/dott_${{ needs.extract_version.outputs.version }}_amd64.deb
       - name: Upload artifacts to GH releases
         run: |
-          gh release upload ${{ needs.extract_version.outputs.version }} \
+          gh release upload v${{ needs.extract_version.outputs.version }} \
           target/debian/dott_${{ needs.extract_version.outputs.version }}_amd64.deb
 
