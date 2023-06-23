@@ -1,14 +1,9 @@
-name: Check, build and release (nix)
+name: Release
 
 on:
   push:
-    branches:
-      - main
     tags:
       - "v*"
-  pull_request:
-    branches:
-      - main
 
 permissions: write-all
 
@@ -37,6 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Create new release
+        if: ${{ github.ref == 'refs/heads/master' }}
         run: |
           COMMIT_HASH=$(git rev-list --max-count=1 HEAD)
           echo "Creating release: v${{ needs.extract_version.outputs.version }}"
@@ -83,7 +79,7 @@ jobs:
       - name: Test
         run: |
           nix develop --command \
-            cargo test
+            cargo test --release
 
   linux_deb:
     name: Linux Debian Release

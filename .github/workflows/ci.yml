@@ -1,0 +1,46 @@
+name: CI
+
+on: [push, pull_request]
+
+
+jobs:
+  check_nix:
+    name: Check
+    runs-on: ubuntu-22.04
+    steps:
+      - name: git checkout
+        uses: actions/checkout@v3
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+      - name: Set up Rust cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: dott-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Check Nixpkgs inputs
+        uses: DeterminateSystems/flake-checker-action@v4
+        with:
+          fail-mode: true
+
+      # Nix-specific logic
+      - name: Check formatting
+        run: |
+          nix develop --command \
+            cargo fmt --check
+      - name: Lint
+        run: |
+          nix develop --command \
+            cargo clippy -- -D warnings
+      - name: Test
+        run: |
+          nix develop --command \
+            cargo test
+      - name: Build
+        run: |
+          nix build
+
