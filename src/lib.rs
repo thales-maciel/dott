@@ -1,9 +1,11 @@
 use std::{
     path::PathBuf,
-    fs::{remove_file, copy, OpenOptions, read_to_string, create_dir_all, File},
-    io::{Write, self}, env::{self, current_dir}
+    fs::{read_to_string, copy, remove_file},
+    env,
 };
-use glob::{Pattern, glob};
+use console::{style, Term};
+use dialoguer::Confirm;
+use glob::glob;
 use path_absolutize::Absolutize;
 
 use crate::prelude::*;
@@ -11,190 +13,140 @@ use crate::prelude::*;
 pub mod error;
 pub mod prelude;
 
-pub struct Dir {
-    pub root_path: PathBuf,
-    pub tracked_files: Vec<TrackedFile>,
-}
+pub struct Add { from: PathBuf, to: PathBuf}
+pub struct Overwrite { from: PathBuf, to: PathBuf}
+pub struct Remove(PathBuf);
 
-fn run_in_dir<T, F: FnOnce() -> T>(dir: &PathBuf, f: F) -> io::Result<T> {
-    let current_dir = env::current_dir()?;
-    env::set_current_dir(&dir)?;
-    let result = f();
-    env::set_current_dir(&current_dir)?;
-    Ok(result)
-}
+pub fn sync_dirs(pattern_file: &PathBuf, from_dir: &PathBuf, to_dir: &PathBuf, raw: &bool) -> Result<()> {
+    // resolve absolute paths
+    let from_dir = from_dir.absolutize().map_err(|_| DotrError::PathNotFound(f!("{:?}", from_dir)))?;
+    let to_dir = to_dir.absolutize().map_err(|_| DotrError::PathNotFound(f!("{:?}", to_dir)))?;
 
-fn get_tracked_files(root_path: &PathBuf, include_patterns: &Vec<String>, exclude_patterns: &Vec<String>) -> Result<Vec<TrackedFile>> {
-    println!("Getting currently tracked files in {}", root_path.display());
-    run_in_dir(&root_path, || {
-        let mut ignore_patterns = Vec::new();
-        for p in exclude_patterns {
-            ignore_patterns.push(Pattern::new(p).map_err(|_| Error::Generic("Bad pattern".into()))?);
-        }
+    // assert from_dir and to_dir are directories
+    if !from_dir.exists() {
+        return Err(DotrError::PathNotFound(f!("{:?}", from_dir)));
+    }
+    if !from_dir.is_dir() {
+        return Err(DotrError::NotDir(f!("{:?}", from_dir)));
+    }
+    if !to_dir.exists() {
+        return Err(DotrError::PathNotFound(f!("{:?}", to_dir)));
+    }
+    if !to_dir.is_dir() {
+        return Err(DotrError::NotDir(f!("{:?}", to_dir)));
+    }
+    // assert pattern_file is a file
+    if !pattern_file.exists() {
+        return Err(DotrError::PathNotFound(f!("{:?}", pattern_file)));
+    }
+    if !pattern_file.is_file() {
+        return Err(DotrError::NotFile(f!("{:?}", pattern_file)));
+    }
 
-        let mut files = Vec::new();
-        for pattern in include_patterns {
-            let paths = glob(&pattern).map_err(|_| Error::Generic("Bad pattern".into()))?;
-            for path in paths {
-                let relative_path = path.map_err(|_| Error::Generic("Bad pattern".into()))?;
-                if ignore_patterns.iter().any(|p| p.matches(relative_path.to_str().unwrap())) {
-                    println!("\tCurrently ignoring file {}", &relative_path.display());
+    // go to from_dir
+    env::set_current_dir(&from_dir).map_err(DotrError::IO)?;
+
+    // get all patterns from file
+    let patterns = read_to_string(pattern_file)
+        .map_err(DotrError::IO)?
+        .lines()
+        .map(|l| l.to_string())
+        .collect::<Vec<String>>();
+
+    // get all matching files
+    let mut add_ops: Vec<Add> = Vec::new();
+    let mut overwrite_ops: Vec<Overwrite> = Vec::new();
+    let mut remove_ops: Vec<Remove> = Vec::new();
+
+    let mut files: Vec<PathBuf> = Vec::new();
+    for pattern in &patterns {
+        let paths = glob(&pattern).map_err(|e| DotrError::BadGlob(pattern.clone(), e))?;
+        for path in paths {
+            let path = path.map_err(|e| DotrError::PathAccess(pattern.clone(), e))?;
+            let absolute_path = from_dir.join(&path);
+            if files.iter().find(|f| f.to_owned() == &absolute_path).is_none() {
+                files.push(absolute_path.clone());
+                let target_path = to_dir.join(&path);
+                if target_path.exists() {
+                    overwrite_ops.push(Overwrite { from: absolute_path.clone(), to: target_path })
                 } else {
-                    println!("\tCurrently tracking file {}", &relative_path.display());
-                    files.push(to_tracked_file(&relative_path, &root_path));
+                    add_ops.push(Add { from: absolute_path, to: target_path })
                 }
             }
         }
-        Ok(files)
-    })?
-}
-
-pub struct TrackedFile {
-    pub absolute_path: PathBuf,
-    pub relative_path: PathBuf,
-}
-
-pub fn to_tracked_file(relative_path: &PathBuf, root_path: &PathBuf)-> TrackedFile {
-    TrackedFile {
-        absolute_path: root_path.join(&relative_path),
-        relative_path: relative_path.into(),
-    }
-}
-
-pub struct Dotr {
-    repo_dir: PathBuf,
-    home_dir: PathBuf,
-    config_dir: PathBuf,
-}
-
-fn get_patterns_from_file(file_path: &PathBuf) -> Vec<String> {
-    if let Ok(lines) = read_to_string(file_path) {
-        return lines.lines().map(|l| l.to_string()).collect();
-    };
-    vec![]
-}
-
-fn get_or_create_config_file(config_dir: &PathBuf) -> Result<PathBuf> {
-    let config_file = config_dir.join("dotr.config");
-    if !config_file.exists() {
-        create_dir_all(config_dir)?;
-        File::create(&config_file)?;
-        println!("Created config file at {}", config_file.display());
-        println!("Add globs to it to start syncing your files");
-    }
-    Ok(config_file.to_owned())
-}
-
-impl Dotr {
-    pub fn new(home_dir: PathBuf, repo_dir: PathBuf, config_dir: PathBuf) -> Self {
-        println!("Creating new dotr instance");
-        println!("home_dir: {}", home_dir.display());
-        println!("repo_dir: {}", repo_dir.display());
-        println!("config_dir: {}", config_dir.display());
-        Self {
-            home_dir,
-            repo_dir,
-            config_dir,
-        }
     }
 
-    pub fn sync(&self) -> Result<()> {
-        let (repo, home) = self.get_repo_and_home()?;
-        let repo_files = repo.tracked_files;
-        for file in repo_files {
-            println!("Removing file {}", &file.absolute_path.display());
-            remove_file(&file.absolute_path).map_err(|_| Error::Generic("Failed to remove file".into()))?;
-        }
-        let home_files = home.tracked_files;
-        for file in home_files {
-            let destination = repo.root_path.join(&file.relative_path);
-            let Some(parent_dir) = destination.parent() else {
-                return Err(Error::Generic("Path without parent".into()));
-            };
-            create_dir_all(&parent_dir)
-                .map_err(|_| Error::Generic("Failed to create parent dir".into()))?;
-            copy(&file.absolute_path, &destination)
-                .map_err(|_| Error::Generic("Failed to copy file".into()))?;
-        }
-        Ok(())
-    }
+    // go to to_dir
+    env::set_current_dir(&to_dir).map_err(DotrError::IO)?;
 
-    fn get_repo_and_home(&self) -> Result<(Dir, Dir)> {
-        if let false = &self.repo_dir.exists() {
-            println!("Creating repository directory");
-            create_dir_all(&self.repo_dir).map_err(|_| Error::Generic("Could not create repository directory".into()))?;
-        }
-        if let false = &self.config_dir.exists() {
-            println!("Creating repository directory");
-            create_dir_all(&self.config_dir).map_err(|_| Error::Generic("Could not create config directory".into()))?;
-        }
-        let include_file = get_or_create_config_file(&self.config_dir)?;
-        let ignore_file = &self.repo_dir.join(".gitignore");
-        let include_patterns = get_patterns_from_file(&include_file);
-        println!("Found include patterns: {:?}", include_patterns);
-        let ignore_patterns = get_patterns_from_file(&ignore_file);
-        let mut exclude_patterns = vec![".git/**".to_string(), ".gitignore".to_string()];
-        exclude_patterns.extend_from_slice(&ignore_patterns);
-        let tracked_files_in_repo = get_tracked_files(&self.repo_dir, &include_patterns, &exclude_patterns)?;
-        let repo = Dir { root_path: self.repo_dir.to_owned(), tracked_files: tracked_files_in_repo };
-        let tracked_files_in_home = get_tracked_files(&self.home_dir, &include_patterns, &exclude_patterns)?;
-        let home = Dir { root_path: self.home_dir.to_owned(), tracked_files: tracked_files_in_home };
-        Ok((repo, home))
-    }
-
-    pub fn install(&self, force: bool) -> Result<()> {
-        let (repo, home) = self.get_repo_and_home()?;
-        let repo_files = repo.tracked_files;
-        for file in repo_files {
-            let destination = home.root_path.join(&file.relative_path);
-            if destination.exists() && !force {
-                println!("{} already exists, skipping copy", destination.display());
-                return Ok(())
-            }
-            let Some(parent_dir) = destination.parent() else {
-                return Err(Error::Generic("Path without parent".into()));
-            };
-            println!("Copying file {} to {}", file.absolute_path.display(), destination.display());
-            create_dir_all(&parent_dir)
-                .map_err(|_| Error::Generic("Failed to create parent dir".into()))?;
-            copy(&file.absolute_path, &destination)
-                .map_err(|_| Error::Generic("Failed to copy file".into()))?;
-        }
-        Ok(())
-    }
-
-    pub fn add(&self, paths: &Vec<PathBuf>) -> Result<()> {
-        let config_file_path = get_or_create_config_file(&self.config_dir)?;
-        let mut config_file = OpenOptions::new()
-            .read(true)
-            .append(true)
-            .open(&config_file_path)
-            .map_err(|_| Error::Generic("Failed to open config file".into()))?;
-
-        let config_file_lines = read_to_string(&config_file_path)
-            .map_err(|_| Error::Generic("Failed to read config file".into()))?;
-
+    // get all matching destination files
+    let mut files_to_delete: Vec<PathBuf> = Vec::new();
+    for pattern in &patterns {
+        let paths = glob(&pattern).map_err(|e| DotrError::BadGlob(pattern.clone(), e))?;
         for path in paths {
-            println!("path {}", path.display());
-            println!("current_dir {}", current_dir().unwrap().display());
-            println!("home_dir {}", &self.home_dir.display());
-            let relative_path = path.absolutize()
-                .map_err(|_| Error::Generic("Failed to absolutize path".into()))?
-                .strip_prefix(&self.home_dir)
-                .map_err(|_| Error::Generic("Failed to strip home dir".into()))?
-                .to_owned();
-            
-            println!("relpath {}", relative_path.display());
-
-            let Some(glob) = relative_path.to_str() else {
-                return Err(Error::Generic("Failed to convert path to string".into()));
-            };
-
-            if !config_file_lines.split("\n").any(|line| line == glob) {
-                println!("glob added {}", glob);
-                writeln!(config_file, "{}", glob).map_err(|_| Error::Generic("Failed to write to config file".into()))?;
+            let path = path.map_err(|e| DotrError::PathAccess(pattern.clone(), e))?;
+            let absolute_path = to_dir.join(path);
+            if files_to_delete.iter().find(|f| f.to_owned() == &absolute_path).is_none() {
+                files_to_delete.push(absolute_path.clone());
+                remove_ops.push(Remove(absolute_path));
             }
         }
-        Ok(())
     }
+
+    if add_ops.is_empty() && overwrite_ops.is_empty() && remove_ops.is_empty() {
+        println!("No syncing necessary");
+        return Ok(());
+    }
+
+    if !add_ops.is_empty() {
+        println!("The following files will be added to {}", to_dir.display());
+        for add in add_ops.iter() {
+            println!("{}", style(add.to.display()).green());
+        }
+        println!();
+    }
+
+    if !overwrite_ops.is_empty() {
+        println!("The following files will be overwritten in {}", to_dir.display());
+        for overwrite in overwrite_ops.iter() {
+            println!("{}", style(overwrite.to.display()).yellow());
+        }
+        println!();
+    }
+
+    if !remove_ops.is_empty() {
+        println!("The following files will be removed from {}", to_dir.display());
+        for remove in remove_ops.iter() {
+            println!("{}", style(remove.0.display()).red());
+        }
+        println!();
+    }
+
+    if raw.to_owned() {
+        return Ok(())
+    }
+
+    // ask the user to confirm
+    if Confirm::new()
+        .wait_for_newline(true)
+        .default(true)
+        .show_default(true)
+        .with_prompt("Do you want to continue?")
+        .interact_on(&Term::stdout())? {
+        // add all files
+        for add in add_ops.iter() {
+            copy(&add.from, &add.to)?;
+        }
+        // overwrite all files
+        for overwrite in overwrite_ops.iter() {
+            copy(&overwrite.from, &overwrite.to)?;
+        }
+        // remove all files
+        for remove in remove_ops.iter() {
+            remove_file(&remove.0)?;
+        }
+    } 
+
+    Ok(())
 }
+
