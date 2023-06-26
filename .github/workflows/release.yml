@@ -100,6 +100,47 @@ jobs:
           cargo build -r
           cargo publish --token ${CRATES_TOKEN}
 
+  publish_to_aur:
+    name: Publish to aur
+    needs: ["check_nix", "extract_version", "create_release"]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Print target version
+        run: |
+          echo Using version v${{ needs.extract_version.outputs.version }}
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+      - name: Build binary
+        run: nix build
+      - uses: actions/upload-artifact@v2
+        name: "Upload artifacts"
+        with:
+          name: Binary
+          path: |
+            result/bin/dott
+      - name: Upload artifacts to GH releases
+        run: |
+          gh release upload v${{ needs.extract_version.outputs.version }} \
+          result/bin/dott
+      - name: Generate PKGBUILD
+        run: |
+          export DOTT_CHECKSUM=sha512sum result/bin/dott | cut -d' ' -f1
+          export README_CHECKSUM=sha512sum README.md | cut -d' ' -f1
+          RELEASE_TAG={{ needs.extract_version.outputs.version }} ./ci/generate-pkgbuild.py
+
+      - name: Publish to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v2.2.3
+        with:
+          pkgname: dott-rs
+          pkgbuild: ./pkgbuild/dott-rs-bin/PKGBUILD
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: v${{ needs.extract_version.outputs.version }}
+
+
+
   linux_deb:
     name: Linux Debian Release
     needs: ["check_nix", "extract_version", "create_release"]
@@ -116,7 +157,6 @@ jobs:
           nix develop
           cargo install cargo-deb --version 1.34.0
           cargo-deb
-          ls target/debian
       - uses: actions/upload-artifact@v2
         name: "Upload artifacts"
         with:
