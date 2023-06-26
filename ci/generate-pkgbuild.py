@@ -39,8 +39,8 @@ with open('./pkgbuild/dott-rs-bin/PKGBUILD', 'w') as pkgbuild:
     content += f"sha512sums_x86_64=('{dott_checksum}' '{readme_checksum}')"
     content += '\n\n'
     content += 'package() {\n'
-    content += '  install -Dm 755 "$pkgname-$pkgver" "{pkgdir}/usr/bin/$_pkgname\n'
-    content += '  install -Dm 644 "$pkgname-$pkgver-README.md" "{pkgdir}/usr/share/doc/$pkgname/README.md\n'
+    content += '  install -Dm 755 "$pkgname-$pkgver" "${pkgdir}/usr/bin/$_pkgname"\n'
+    content += '  install -Dm 644 "$pkgname-$pkgver-README.md" "$pkgdir/usr/share/doc/$pkgname/README.md"\n'
     content += '}'
     pkgbuild.write(content)
 
