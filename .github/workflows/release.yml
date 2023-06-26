@@ -130,7 +130,7 @@ jobs:
           RELEASE_TAG={{ needs.extract_version.outputs.version }} ./ci/generate-pkgbuild.py
 
       - name: Publish to AUR
-        uses: KSXGitHub/github-actions-deploy-aur@v2.2.3
+        uses: KSXGitHub/github-actions-deploy-aur@v2.7.0
         with:
           pkgname: dott-rs
           pkgbuild: ./pkgbuild/dott-rs-bin/PKGBUILD
