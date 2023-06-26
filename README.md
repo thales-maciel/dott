@@ -2,6 +2,18 @@
 
 > Dott is here to manage your dotfiles in the simplest way it knows how... by copying things around.
 
+## Installing
+### From AUR
+```bash
+yay -S dott-rs-bin
+```
+### From Crates.io
+```bash
+cargo install dott
+```
+
+Also available as binary and DEB package in [the releases page](https://github.com/thales-maciel/dott/releases)
+
 ## Why dott? Seriously, Why?
 
 Dott aims to be straightforward and unobtrusive. It's *not* going to revolutionize your workflow. The goal is to try a different approach to dotfile management by keeping your dotfiles where they belong, __without symlinks__.
