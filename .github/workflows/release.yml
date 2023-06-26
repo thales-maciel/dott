@@ -132,7 +132,7 @@ jobs:
       - name: Publish to AUR
         uses: KSXGitHub/github-actions-deploy-aur@v2.7.0
         with:
-          pkgname: dott-rs
+          pkgname: dott-rs-bin
           pkgbuild: ./pkgbuild/dott-rs-bin/PKGBUILD
           commit_username: ${{ secrets.AUR_USERNAME }}
           commit_email: ${{ secrets.AUR_EMAIL }}
