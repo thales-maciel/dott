@@ -36,7 +36,7 @@ with open('./pkgbuild/dott-rs-bin/PKGBUILD', 'w') as pkgbuild:
     content += 'conflicts=("$_pkgname" "${pkgname%-bin}")\n'
     content += 'provides=("${pkgname%-bin}")\n'
     content += 'source_x86_64=("$pkgname-$pkgver::$url/releases/download/v$pkgver/$_pkgname" "$pkgname-$pkgver-README.md::$url/raw/v$pkgver/README.md")\n'
-    content += f"sha512sums_x86_64=('${dott_checksum}' '${readme_checksum}')"
+    content += f"sha512sums_x86_64=('{dott_checksum}' '{readme_checksum}')"
     content += '\n\n'
     content += 'package() {\n'
     content += '  install -Dm 755 "$pkgname-$pkgver" "{pkgdir}/usr/bin/$_pkgname\n'
