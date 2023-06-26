@@ -125,9 +125,9 @@ jobs:
           result/bin/dott
       - name: Generate PKGBUILD
         run: |
-          DOTT_CHECKSUM=sha512sum result/bin/dott | cut -d' ' -f1
-          README_CHECKSUM=sha512sum README.md | cut -d' ' -f1
-          RELEASE_TAG=${{ needs.extract_version.outputs.version }} DOTT_CHECKSUM=DOTT_CHECKSUM README_CHECKSUM=README_CHECKSUM ./ci/generate-pkgbuild.py
+          DOTT_CHECKSUM=$(sha512sum result/bin/dott | cut -d' ' -f1)
+          README_CHECKSUM=$(sha512sum README.md | cut -d' ' -f1)
+          RELEASE_TAG=${{ needs.extract_version.outputs.version }} DOTT_CHECKSUM=$DOTT_CHECKSUM README_CHECKSUM=$README_CHECKSUM ./ci/generate-pkgbuild.py
 
       - name: Publish to AUR
         uses: KSXGitHub/github-actions-deploy-aur@v2.7.0
