@@ -5,7 +5,7 @@ use path_absolutize::Absolutize;
 use std::{
     env,
     fs::{copy, create_dir_all, read_to_string, remove_file},
-    path::{PathBuf, Path},
+    path::{Path, PathBuf},
 };
 
 use crate::prelude::*;
