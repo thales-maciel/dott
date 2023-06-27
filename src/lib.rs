@@ -93,6 +93,9 @@ pub fn sync_dirs(
 }
 
 fn perform_operations(add_ops: Vec<Add>, overwrite_ops: Vec<Overwrite>, remove_ops: Vec<Remove>) -> Result<()> {
+    for remove in remove_ops.iter() {
+        remove_file(&remove.0)?;
+    }
     for add in add_ops.iter() {
         create_dir_all(add.to.parent().unwrap())?;
         copy(&add.from, &add.to)?;
@@ -100,9 +103,6 @@ fn perform_operations(add_ops: Vec<Add>, overwrite_ops: Vec<Overwrite>, remove_o
     for overwrite in overwrite_ops.iter() {
         create_dir_all(overwrite.to.parent().unwrap())?;
         copy(&overwrite.from, &overwrite.to)?;
-    }
-    for remove in remove_ops.iter() {
-        remove_file(&remove.0)?;
     }
     println!("{}", style("Sync completed successfully").bold());
     Ok(())
@@ -191,7 +191,7 @@ fn compute_operations(
             }
             let absolute_path = to_dir.join(path);
             // find out if path is going to be overwritten
-            if !overwrite_ops.iter().any(|o| o.to == absolute_path) {
+            if overwrite_ops.iter().any(|o| o.to == absolute_path) {
                 continue;
             }
             if !files_to_delete.iter().any(|f| f == &absolute_path) {
