@@ -21,13 +21,14 @@ fn main() -> Result<()> {
             let patterns_file = &cwd.join("dott.config");
             let target = get_home_dir()?;
             let raw = &args.raw;
+            let skip_prompt = &args.skip_prompt;
 
             println!("Will use patterns from {}", patterns_file.display());
             println!("To gather files from {}", source.display());
             println!("And sync them to {}", target.display());
             println!();
 
-            if let Err(e) = sync_dirs(patterns_file, source, &target, raw) {
+            if let Err(e) = sync_dirs(patterns_file, source, &target, raw, skip_prompt) {
                 eprintln!("{}", e);
                 std::process::exit(1);
             }
@@ -37,13 +38,14 @@ fn main() -> Result<()> {
             let patterns_file = &cwd.join("dott.config");
             let source = get_home_dir()?;
             let raw = &args.raw;
+            let skip_prompt = &args.skip_prompt;
 
             println!("Will use patterns from {}", patterns_file.display());
             println!("To gather files from {}", source.display());
             println!("And sync them to {}", target.display());
             println!();
 
-            if let Err(e) = sync_dirs(patterns_file, &source, target, raw) {
+            if let Err(e) = sync_dirs(patterns_file, &source, target, raw, skip_prompt) {
                 eprintln!("{}", e);
                 std::process::exit(1);
             }
@@ -72,6 +74,8 @@ pub enum Commands {
 pub struct SyncArgs {
     #[arg(short, long, default_value_t = false)]
     pub raw: bool,
+    #[arg(short = 'y', default_value_t = false)]
+    pub skip_prompt: bool,
 }
 
 #[derive(Args)]
