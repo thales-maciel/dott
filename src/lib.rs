@@ -5,7 +5,7 @@ use path_absolutize::Absolutize;
 use std::{
     env,
     fs::{copy, create_dir_all, read_to_string, remove_file},
-    path::PathBuf,
+    path::{PathBuf, Path},
 };
 
 use crate::prelude::*;
@@ -58,7 +58,7 @@ fn validate_paths(
     if !pattern_file.is_file() {
         return Err(DottError::NotFile(f!("{:?}", pattern_file)));
     }
-    return Ok((from_dir, to_dir));
+    Ok((from_dir, to_dir))
 }
 
 pub fn sync_dirs(
@@ -120,7 +120,7 @@ fn perform_operations(
 
 fn print_operations(
     add_ops: &Vec<Add>,
-    to_dir: &PathBuf,
+    to_dir: &Path,
     overwrite_ops: &Vec<Overwrite>,
     remove_ops: &Vec<Remove>,
 ) {
@@ -155,12 +155,14 @@ fn print_operations(
     }
 }
 
+type Ops = (Vec<Add>, Vec<Overwrite>, Vec<Remove>);
+
 fn compute_operations(
     from_dir: &PathBuf,
     pattern_file: &PathBuf,
     to_dir: &PathBuf,
-) -> Result<Option<(Vec<Add>, Vec<Overwrite>, Vec<Remove>)>> {
-    env::set_current_dir(&from_dir).map_err(DottError::IO)?;
+) -> Result<Option<Ops>> {
+    env::set_current_dir(from_dir).map_err(DottError::IO)?;
     let patterns = read_to_string(pattern_file)
         .map_err(DottError::IO)?
         .lines()
