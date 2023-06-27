@@ -23,12 +23,7 @@ pub struct Overwrite {
 }
 pub struct Remove(PathBuf);
 
-pub fn sync_dirs(
-    pattern_file: &PathBuf,
-    from_dir: &PathBuf,
-    to_dir: &PathBuf,
-    raw: &bool,
-) -> Result<()> {
+fn validate_paths(pattern_file: &PathBuf, from_dir: &PathBuf, to_dir: &PathBuf) -> Result<(PathBuf, PathBuf)> {
     // resolve absolute paths
     let from_dir = from_dir
         .absolutize()
@@ -57,14 +52,21 @@ pub fn sync_dirs(
     if !pattern_file.is_file() {
         return Err(DottError::NotFile(f!("{:?}", pattern_file)));
     }
+    return Ok((from_dir, to_dir))
+}
 
-    // go to from_dir
-    let (add_ops, overwrite_ops, remove_ops) = compute_operations(&from_dir, pattern_file, &to_dir)?;
+pub fn sync_dirs(
+    pattern_file: &PathBuf,
+    from_dir: &PathBuf,
+    to_dir: &PathBuf,
+    raw: &bool,
+    skip_prompt: &bool
+) -> Result<()> {
+    let (from_dir, to_dir) = validate_paths(pattern_file, from_dir, to_dir)?;
 
-    if add_ops.is_empty() && overwrite_ops.is_empty() && remove_ops.is_empty() {
-        println!("No syncing necessary");
+    let Some((add_ops, overwrite_ops, remove_ops)) = compute_operations(&from_dir, pattern_file, &to_dir)? else {
         return Ok(());
-    }
+    };
 
     print_operations(&add_ops, &to_dir, &overwrite_ops, &remove_ops);
 
@@ -72,16 +74,20 @@ pub fn sync_dirs(
         return Ok(());
     }
 
-    // ask the user to confirm
-    if Confirm::new()
-        .wait_for_newline(true)
-        .default(true)
-        .show_default(true)
-        .with_prompt("Do you want to continue?")
-        .interact_on(&Term::stdout())?
-    {
+    if skip_prompt.to_owned() {
         perform_operations(add_ops, overwrite_ops, remove_ops)?;
-    }
+    } else {
+        // ask the user to confirm
+        if Confirm::new()
+            .wait_for_newline(true)
+            .default(true)
+            .show_default(true)
+            .with_prompt("Do you want to continue?")
+            .interact_on(&Term::stdout())?
+        {
+            perform_operations(add_ops, overwrite_ops, remove_ops)?;
+        };
+    };
 
     Ok(())
 }
@@ -138,7 +144,7 @@ fn compute_operations(
     from_dir: &PathBuf,
     pattern_file: &PathBuf,
     to_dir: &PathBuf
-) -> Result<(Vec<Add>, Vec<Overwrite>, Vec<Remove>)> {
+) -> Result<Option<(Vec<Add>, Vec<Overwrite>, Vec<Remove>)>> {
     env::set_current_dir(&from_dir).map_err(DottError::IO)?;
     let patterns = read_to_string(pattern_file)
         .map_err(DottError::IO)?
@@ -194,5 +200,8 @@ fn compute_operations(
             }
         }
     }
-    Ok((add_ops, overwrite_ops, remove_ops))
+    if add_ops.is_empty() && overwrite_ops.is_empty() && remove_ops.is_empty() {
+        return Ok(None)
+    };
+    Ok(Some((add_ops, overwrite_ops, remove_ops)))
 }
