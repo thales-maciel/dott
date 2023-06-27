@@ -1,8 +1,8 @@
 extern crate temp_testdir;
 
-use assert_cmd::Command;
-use std::fs::{create_dir_all, read_to_string, File};
+use std::fs::{File, create_dir_all, read_to_string};
 use std::io::Write;
+use assert_cmd::Command;
 use temp_testdir::TempDir;
 
 #[test]
@@ -63,10 +63,7 @@ fn should_add_missing_files() {
 
     let synced_file = repo_root.join("some_file.txt");
     assert!(synced_file.exists());
-    assert_eq!(
-        read_to_string(synced_file).unwrap(),
-        "some content".to_string()
-    );
+    assert_eq!(read_to_string(synced_file).unwrap(), "some content".to_string());
 }
 
 #[test]
@@ -83,7 +80,7 @@ fn should_overwrite_file_content() {
     let file_path = home_root.join("some_file.txt");
     let mut file = File::create(file_path).unwrap();
     file.write_all(b"updated content").unwrap();
-
+    
     let repo_file_path = repo_root.join("some_file.txt");
     let mut file = File::create(&repo_file_path).unwrap();
     file.write_all(b"legacy content").unwrap();
@@ -102,10 +99,7 @@ fn should_overwrite_file_content() {
     assert.success().code(0);
 
     assert!(repo_file_path.exists());
-    assert_eq!(
-        read_to_string(repo_file_path).unwrap(),
-        "updated content".to_string()
-    );
+    assert_eq!(read_to_string(repo_file_path).unwrap(), "updated content".to_string());
 }
 
 #[test]
@@ -121,7 +115,7 @@ fn should_not_remove_untracked_files_from_repo() {
     // create tracked_file
     let file_path = home_root.join("some_file.txt");
     File::create(file_path).unwrap();
-
+    
     let repo_file_path = repo_root.join("another_file.txt");
     File::create(&repo_file_path).unwrap();
 
@@ -138,13 +132,8 @@ fn should_not_remove_untracked_files_from_repo() {
         .assert();
     assert.success().code(0);
 
-    let mut repo_files = repo_root.read_dir().unwrap();
-
     assert!(repo_file_path.exists());
-    assert_eq!(
-        repo_files.next().unwrap().unwrap().path(),
-        repo_root.join("some_file.txt")
-    );
+    assert!(repo_root.join("some_file.txt").exists());
 }
 
 #[test]
@@ -160,7 +149,7 @@ fn should_remove_tracked_files_from_repo_if_they_are_missing_in_home() {
     // create tracked_file
     let file_path = home_root.join("some_file.txt");
     File::create(file_path).unwrap();
-
+    
     let repo_file_path = repo_root.join("another_file.txt");
     File::create(&repo_file_path).unwrap();
 
@@ -178,13 +167,8 @@ fn should_remove_tracked_files_from_repo_if_they_are_missing_in_home() {
         .assert();
     assert.success().code(0);
 
-    let mut repo_files = repo_root.read_dir().unwrap();
-
     assert!(!repo_file_path.exists());
-    assert_eq!(
-        repo_files.next().unwrap().unwrap().path(),
-        repo_root.join("some_file.txt")
-    );
+    assert!(repo_root.join("some_file.txt").exists());
 }
 
 #[test]
@@ -202,7 +186,7 @@ fn should_nest_contents_correctly() {
     // create tracked_file
     let file_path = home_nested_dir.join("some_file.txt");
     File::create(file_path).unwrap();
-
+    
     let config_file_path = &repo_root.join("dott.config");
     let mut config_file = File::create(config_file_path).unwrap();
     writeln!(&mut config_file, ".config/some/nested/dir/some_file.txt").unwrap();
@@ -216,7 +200,6 @@ fn should_nest_contents_correctly() {
         .assert();
     assert.success().code(0);
 
-    assert!(repo_root
-        .join(".config/some/nested/dir/some_file.txt")
-        .exists());
+    assert!(repo_root.join(".config/some/nested/dir/some_file.txt").exists());
 }
+
