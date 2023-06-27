@@ -74,7 +74,7 @@ pub enum Commands {
 pub struct SyncArgs {
     #[arg(short, long, default_value_t = false)]
     pub raw: bool,
-    #[arg(short='y', default_value_t = false)]
+    #[arg(short = 'y', default_value_t = false)]
     pub skip_prompt: bool,
 }
 

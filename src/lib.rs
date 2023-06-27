@@ -23,14 +23,20 @@ pub struct Overwrite {
 }
 pub struct Remove(PathBuf);
 
-fn validate_paths(pattern_file: &PathBuf, from_dir: &PathBuf, to_dir: &PathBuf) -> Result<(PathBuf, PathBuf)> {
+fn validate_paths(
+    pattern_file: &PathBuf,
+    from_dir: &PathBuf,
+    to_dir: &PathBuf,
+) -> Result<(PathBuf, PathBuf)> {
     // resolve absolute paths
     let from_dir = from_dir
         .absolutize()
-        .map_err(|_| DottError::PathNotFound(f!("{:?}", from_dir)))?.to_path_buf();
+        .map_err(|_| DottError::PathNotFound(f!("{:?}", from_dir)))?
+        .to_path_buf();
     let to_dir = to_dir
         .absolutize()
-        .map_err(|_| DottError::PathNotFound(f!("{:?}", to_dir)))?.to_path_buf();
+        .map_err(|_| DottError::PathNotFound(f!("{:?}", to_dir)))?
+        .to_path_buf();
 
     // assert from_dir and to_dir are directories
     if !from_dir.exists() {
@@ -52,7 +58,7 @@ fn validate_paths(pattern_file: &PathBuf, from_dir: &PathBuf, to_dir: &PathBuf) 
     if !pattern_file.is_file() {
         return Err(DottError::NotFile(f!("{:?}", pattern_file)));
     }
-    return Ok((from_dir, to_dir))
+    return Ok((from_dir, to_dir));
 }
 
 pub fn sync_dirs(
@@ -60,7 +66,7 @@ pub fn sync_dirs(
     from_dir: &PathBuf,
     to_dir: &PathBuf,
     raw: &bool,
-    skip_prompt: &bool
+    skip_prompt: &bool,
 ) -> Result<()> {
     let (from_dir, to_dir) = validate_paths(pattern_file, from_dir, to_dir)?;
 
@@ -92,7 +98,11 @@ pub fn sync_dirs(
     Ok(())
 }
 
-fn perform_operations(add_ops: Vec<Add>, overwrite_ops: Vec<Overwrite>, remove_ops: Vec<Remove>) -> Result<()> {
+fn perform_operations(
+    add_ops: Vec<Add>,
+    overwrite_ops: Vec<Overwrite>,
+    remove_ops: Vec<Remove>,
+) -> Result<()> {
     for remove in remove_ops.iter() {
         remove_file(&remove.0)?;
     }
@@ -108,7 +118,12 @@ fn perform_operations(add_ops: Vec<Add>, overwrite_ops: Vec<Overwrite>, remove_o
     Ok(())
 }
 
-fn print_operations(add_ops: &Vec<Add>, to_dir: &PathBuf, overwrite_ops: &Vec<Overwrite>, remove_ops: &Vec<Remove>) {
+fn print_operations(
+    add_ops: &Vec<Add>,
+    to_dir: &PathBuf,
+    overwrite_ops: &Vec<Overwrite>,
+    remove_ops: &Vec<Remove>,
+) {
     if !add_ops.is_empty() {
         println!("The following files will be added to {}", to_dir.display());
         for add in add_ops.iter() {
@@ -143,7 +158,7 @@ fn print_operations(add_ops: &Vec<Add>, to_dir: &PathBuf, overwrite_ops: &Vec<Ov
 fn compute_operations(
     from_dir: &PathBuf,
     pattern_file: &PathBuf,
-    to_dir: &PathBuf
+    to_dir: &PathBuf,
 ) -> Result<Option<(Vec<Add>, Vec<Overwrite>, Vec<Remove>)>> {
     env::set_current_dir(&from_dir).map_err(DottError::IO)?;
     let patterns = read_to_string(pattern_file)
@@ -201,7 +216,7 @@ fn compute_operations(
         }
     }
     if add_ops.is_empty() && overwrite_ops.is_empty() && remove_ops.is_empty() {
-        return Ok(None)
+        return Ok(None);
     };
     Ok(Some((add_ops, overwrite_ops, remove_ops)))
 }

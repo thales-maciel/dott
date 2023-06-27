@@ -1,8 +1,8 @@
 extern crate temp_testdir;
 
-use std::fs::{File, create_dir_all, read_to_string};
-use std::io::Write;
 use assert_cmd::Command;
+use std::fs::{create_dir_all, read_to_string, File};
+use std::io::Write;
 use temp_testdir::TempDir;
 
 #[test]
@@ -57,7 +57,10 @@ fn should_install_missing_files() {
 
     let synced_file = home_root.join("some_file.txt");
     assert!(synced_file.exists());
-    assert_eq!(read_to_string(synced_file).unwrap(), "some content".to_string());
+    assert_eq!(
+        read_to_string(synced_file).unwrap(),
+        "some content".to_string()
+    );
 }
 
 #[test]
@@ -73,7 +76,7 @@ fn should_overwrite_home_content() {
     let repo_file_path = repo_root.join("some_file.txt");
     let mut file = File::create(&repo_file_path).unwrap();
     file.write_all(b"updated content").unwrap();
-    
+
     let home_file_path = home_root.join("some_file.txt");
     let mut file = File::create(&home_file_path).unwrap();
     file.write_all(b"legacy content").unwrap();
@@ -92,7 +95,10 @@ fn should_overwrite_home_content() {
     assert.success().code(0);
 
     assert!(home_file_path.exists());
-    assert_eq!(read_to_string(home_file_path).unwrap(), "updated content".to_string());
+    assert_eq!(
+        read_to_string(home_file_path).unwrap(),
+        "updated content".to_string()
+    );
 }
 
 #[test]
@@ -108,7 +114,7 @@ fn should_install_nested_contents() {
     // create tracked_file
     let file_path = repo_nested_dir.join("some_file.txt");
     File::create(file_path).unwrap();
-    
+
     let config_file_path = &repo_root.join("dott.config");
     let mut config_file = File::create(config_file_path).unwrap();
     writeln!(&mut config_file, ".config/some/nested/dir/some_file.txt").unwrap();
@@ -122,6 +128,7 @@ fn should_install_nested_contents() {
         .assert();
     assert.success().code(0);
 
-    assert!(home_root.join(".config/some/nested/dir/some_file.txt").exists());
+    assert!(home_root
+        .join(".config/some/nested/dir/some_file.txt")
+        .exists());
 }
-
