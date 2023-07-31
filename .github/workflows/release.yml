@@ -126,8 +126,7 @@ jobs:
             ${{ steps.build-bin.outputs.dott_path }}
       - name: Upload artifacts to GH releases
         run: |
-          gh release upload v${{ needs.extract_version.outputs.version }} \
-            ${{steps.build-bin.outputs.dott_path}}
+          gh release upload v${{ needs.extract_version.outputs.version }} ${{steps.build-bin.outputs.dott_path}}
       - name: Generate PKGBUILD
         run: |
           DOTT_CHECKSUM=$(sha512sum ${{steps.build-bin.outputs.dott_path}} | cut -d' ' -f1)
