@@ -71,6 +71,7 @@ pub fn sync_dirs(
     let (from_dir, to_dir) = validate_paths(pattern_file, from_dir, to_dir)?;
 
     let Some((add_ops, overwrite_ops, remove_ops)) = compute_operations(&from_dir, pattern_file, &to_dir)? else {
+        println!("Nothing to do!");
         return Ok(());
     };
 
@@ -207,7 +208,6 @@ fn compute_operations(
                 continue;
             }
             let absolute_path = to_dir.join(path);
-            // find out if path is going to be overwritten
             if overwrite_ops.iter().any(|o| o.to == absolute_path) {
                 continue;
             }
