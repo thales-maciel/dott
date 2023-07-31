@@ -113,10 +113,11 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
       - name: Build binary
-        id: build_bin
+        id: build-bin
         run: |
           nix bundle --bundler github:NixOS/bundlers#toArx -o dott
           DOTT_PATH=$(readlink -f dott)
+          echo "DOTT_PATH = $DOTT_PATH"
           echo "dott_path=$DOTT_PATH" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v2
         name: "Upload artifacts"
