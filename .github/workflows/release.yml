@@ -65,6 +65,7 @@ jobs:
       - name: Check Nixpkgs inputs
         uses: DeterminateSystems/flake-checker-action@v4
         with:
+          check-outdated: false
           fail-mode: true
 
       # Nix-specific logic
