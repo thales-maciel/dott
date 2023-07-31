@@ -112,20 +112,24 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
       - name: Build binary
-        run: nix build
+        id: build_bin
+        run: |
+          nix bundle --bundler github:NixOS/bundlers#toArx -o dott
+          DOTT_PATH=$(readlink -f dott)
+          echo "dott_path=$DOTT_PATH" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v2
         name: "Upload artifacts"
         with:
           name: Binary
           path: |
-            result/bin/dott
+            ${{ steps.build-bin.outputs.dott_path }}
       - name: Upload artifacts to GH releases
         run: |
           gh release upload v${{ needs.extract_version.outputs.version }} \
-          result/bin/dott
+            ${{steps.build-bin.outputs.dott_path}}
       - name: Generate PKGBUILD
         run: |
-          DOTT_CHECKSUM=$(sha512sum result/bin/dott | cut -d' ' -f1)
+          DOTT_CHECKSUM=$(sha512sum ${{steps.build-bin.outputs.dott_path}} | cut -d' ' -f1)
           echo $DOTT_CHECKSUM
           README_CHECKSUM=$(sha512sum README.md | cut -d' ' -f1)
           echo $README_CHECKSUM
